@@ -1,3 +1,42 @@
+data "aws_autoscaling_groups" "groups" {
+  filter {
+    name   = "tag-value"
+    values = ["${var.cluster_name}"]
+  }
+
+  filter {
+    name   = "tag-key"
+    values = ["eks:cluster-name"]
+  }
+}
+
+###Code for adding tag prefix 
+resource "aws_autoscaling_group_tag" "ng-prefix" {
+  count = length(data.aws_autoscaling_groups.groups.names)
+
+  autoscaling_group_name = data.aws_autoscaling_groups.groups.names[count.index]
+
+  tag {
+    key   = "ng-prefix"
+    value = split("-", data.aws_autoscaling_groups.groups.names[count.index])[1]
+    propagate_at_launch = true
+  }
+}
+
+resource "null_resource" "asg-describe" {
+  for_each = local.node_groups_expanded
+  triggers  =  { always_run = "${timestamp()}" }
+  provisioner "local-exec" {
+    command = "desired_capacity=`aws autoscaling describe-auto-scaling-groups --filters 'Name=tag-key,Values=eks:cluster-name' 'Name=tag-value,Values=${var.cluster_name}' 'Name=tag-key,Values=ng-prefix' 'Name=tag-value,Values=${each.key}' --query 'AutoScalingGroups[].DesiredCapacity' --output text`; [ ! -z \"$desired_capacity\" ] && echo $desired_capacity > \"${path.module}/${each.key}-desired.txt\" || echo ${each.value.desired_capacity} > \"${path.module}/${each.key}-desired.txt\""
+  }
+}
+
+data "local_file" "desired_size" {
+  depends_on = [null_resource.asg-describe]
+  for_each = local.node_groups_expanded
+  filename = "${path.module}/${each.key}-desired.txt"
+}
+  
 resource "aws_eks_node_group" "workers" {
   for_each = local.node_groups_expanded
 
@@ -9,7 +48,7 @@ resource "aws_eks_node_group" "workers" {
   subnet_ids    = each.value["subnets"]
 
   scaling_config {
-    desired_size = each.value["desired_capacity"]
+    desired_size = each.value["min_capacity"] <= tonumber(trimspace(data.local_file.desired_size[each.key].content)) ? tonumber(trimspace(data.local_file.desired_size[each.key].content)) : each.value["min_capacity"]
     max_size     = each.value["max_capacity"]
     min_size     = each.value["min_capacity"]
   }
@@ -84,8 +123,23 @@ resource "aws_eks_node_group" "workers" {
 
   lifecycle {
     create_before_destroy = true
-    ignore_changes        = [scaling_config.0.desired_size]
+    # ignore_changes        = [scaling_config.0.desired_size]
   }
 
-  depends_on = [var.ng_depends_on]
+  depends_on = [var.ng_depends_on, data.local_file.desired_size]
+}
+
+
+###Code for adding tag prefix 
+resource "aws_autoscaling_group_tag" "asg_tag" {
+  for_each = local.node_groups_expanded
+
+  autoscaling_group_name = aws_eks_node_group.workers[each.key].resources[0].autoscaling_groups[0].name
+
+  tag {
+    key   = "ng-prefix"
+    value = each.key
+
+    propagate_at_launch = false
+  }
 }
