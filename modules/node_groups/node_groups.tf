@@ -10,16 +10,11 @@ data "aws_autoscaling_groups" "groups" {
   }
 }
 
-###Code for adding tag prefix 
-resource "aws_autoscaling_group_tag" "ng-prefix" {
-  count = length(data.aws_autoscaling_groups.groups.names)
-
-  autoscaling_group_name = data.aws_autoscaling_groups.groups.names[count.index]
-
-  tag {
-    key   = "ng-prefix"
-    value = split("-", data.aws_autoscaling_groups.groups.names[count.index])[1]
-    propagate_at_launch = true
+resource "null_resource" "add_tags_to_ngs" {
+  for_each = local.node_groups_expanded
+  triggers  =  { always_run = "${timestamp()}" }
+  provisioner "local-exec" {
+    command = "asg_names=`aws autoscaling describe-auto-scaling-groups --filters 'Name=tag-key,Values=eks:cluster-name' 'Name=tag-value,Values=${var.cluster_name}' --query 'AutoScalingGroups[].AutoScalingGroupName' --output text`; for eachasg in $asg_names; do if [[ $eachasg == *\"eks-${each.key}-art\"* ]];      then           aws autoscaling create-or-update-tags --tags ResourceId=$eachasg,ResourceType=auto-scaling-group,Key=ng-prefix,Value=\"eks-${each.key}-art\",PropagateAtLaunch=false;     fi; done"
   }
 }
 
@@ -27,7 +22,7 @@ resource "null_resource" "asg-describe" {
   for_each = local.node_groups_expanded
   triggers  =  { always_run = "${timestamp()}" }
   provisioner "local-exec" {
-    command = "desired_capacity=`aws autoscaling describe-auto-scaling-groups --filters 'Name=tag-key,Values=eks:cluster-name' 'Name=tag-value,Values=${var.cluster_name}' 'Name=tag-key,Values=ng-prefix' 'Name=tag-value,Values=${each.key}' --query 'AutoScalingGroups[].DesiredCapacity' --output text`; [ ! -z \"$desired_capacity\" ] && echo $desired_capacity > \"${path.module}/${each.key}-desired.txt\" || echo ${each.value.desired_capacity} > \"${path.module}/${each.key}-desired.txt\""
+    command = "desired_capacity=`aws autoscaling describe-auto-scaling-groups --filters 'Name=tag-key,Values=eks:cluster-name' 'Name=tag-value,Values=${var.cluster_name}' 'Name=tag-key,Values=ng-prefix' 'Name=tag-value,Values=\"eks-${each.key}-art\"' --query 'AutoScalingGroups[].DesiredCapacity' --output text`; [ ! -z \"$desired_capacity\" ] && echo $desired_capacity > \"${path.module}/${each.key}-desired.txt\" || echo ${each.value.desired_capacity} > \"${path.module}/${each.key}-desired.txt\""
   }
 }
 
@@ -138,7 +133,7 @@ resource "aws_autoscaling_group_tag" "asg_tag" {
 
   tag {
     key   = "ng-prefix"
-    value = each.key
+    value = "eks-${each.key}-art"
 
     propagate_at_launch = false
   }
