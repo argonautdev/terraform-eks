@@ -173,3 +173,46 @@ resource "aws_iam_role_policy_attachment" "cluster_elb_sl_role_creation" {
   policy_arn = aws_iam_policy.cluster_elb_sl_role_creation[0].arn
   role       = local.cluster_iam_role_name
 }
+
+##Retrieve information about a specific EKS add-on version compatible(Default) with an EKS cluster version.
+data "aws_eks_addon_version" "vpc-cni" {
+  addon_name         = "vpc-cni"
+  kubernetes_version = aws_eks_cluster.this[0].version
+}
+
+##Addons 
+resource "aws_eks_addon" "vpc-cni" {
+  cluster_name         = aws_eks_cluster.this[0].id
+  addon_name           = "vpc-cni"
+  addon_version        = data.aws_eks_addon_version.vpc-cni.version
+  resolve_conflicts    = "OVERWRITE"
+}
+
+
+data "aws_eks_addon_version" "kube-proxy" {
+  addon_name         = "kube-proxy"
+  kubernetes_version = aws_eks_cluster.this[0].version
+}
+
+##
+resource "aws_eks_addon" "kube-proxy" {
+  cluster_name         = aws_eks_cluster.this[0].id
+  addon_name           = "kube-proxy"
+  addon_version        = data.aws_eks_addon_version.kube-proxy.version
+  resolve_conflicts    = "OVERWRITE"
+}
+
+data "aws_eks_addon_version" "coredns" {
+  addon_name         = "coredns"
+  kubernetes_version = aws_eks_cluster.this[0].version
+}
+
+resource "aws_eks_addon" "coredns" {
+  cluster_name         = aws_eks_cluster.this[0].id
+  addon_name           = "coredns"
+  addon_version        = data.aws_eks_addon_version.coredns.version 
+  resolve_conflicts    = "OVERWRITE"
+  configuration_values = "{\"replicaCount\":2}"
+}
+
+
