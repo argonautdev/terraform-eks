@@ -399,6 +399,9 @@ variable "vpc_cni_addon_version" {
   type = map(string)
   description = "VPC CNI addon version for Kubernetes"
   default = {
+    "1.21" = "v1.10.1-eksbuild.1",
+    "1.22" = "v1.10.1-eksbuild.1",
+    "1.23" = "v1.10.4-eksbuild.1",
     "1.24" = "v1.11.4-eksbuild.1",
     "1.25" = "v1.12.2-eksbuild.1",
     "1.26" = "v1.12.5-eksbuild.2",
@@ -410,6 +413,9 @@ variable "coredns_addon_version" {
   type = map(string)
   description = "CoreDNS addon version for Kubernetes"
   default = {
+    "1.21" = "v1.8.4-eksbuild.1",
+    "1.22" = "v1.8.7-eksbuild.1",
+    "1.23" = "v1.8.7-eksbuild.2",
     "1.24" = "v1.8.7-eksbuild.3",
     "1.25" = "v1.9.3-eksbuild.2",
     "1.26" = "v1.9.3-eksbuild.2",
@@ -421,6 +427,9 @@ variable "kube_proxy_addon_version" {
   type = map(string)
   description = "Kube Proxy addon version for Kubernetes"
   default = {
+    "1.21" = "v1.21.2-eksbuild.2",
+    "1.22" = "v1.22.6-eksbuild.1",
+    "1.23" = "v1.23.7-eksbuild.1",
     "1.24" = "v1.24.7-eksbuild.2",
     "1.25" = "v1.25.6-eksbuild.1",
     "1.26" = "v1.26.2-eksbuild.1",
